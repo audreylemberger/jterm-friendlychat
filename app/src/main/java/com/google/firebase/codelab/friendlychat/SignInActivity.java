@@ -48,12 +48,14 @@ public class SignInActivity extends AppCompatActivity implements
     private GoogleApiClient mGoogleApiClient;
 
     // Firebase instance variables
+    private FirebaseAuth mFirebaseAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sign_in);
 
+        mFirebaseAuth = FirebaseAuth.getInstance();
         // Assign fields
         mSignInButton = (SignInButton) findViewById(R.id.sign_in_button);
 
@@ -77,6 +79,7 @@ public class SignInActivity extends AppCompatActivity implements
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.sign_in_button:
+                signIn();
                 break;
         }
     }
@@ -88,4 +91,45 @@ public class SignInActivity extends AppCompatActivity implements
         Log.d(TAG, "onConnectionFailed:" + connectionResult);
         Toast.makeText(this, "Google Play Services error.", Toast.LENGTH_SHORT).show();
     }
+
+    private void signIn(){
+        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
+        //works with onActivityResult
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RC_SIGN_IN){
+            GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
+            if (result.isSuccess()){
+                //Google sign in goode, authenticate with Firebase
+                GoogleSignInAccount account = result.getSignInAccount();
+                firebaseAuthWithGoogle(account);
+            }else{
+                Log.e(TAG, "Google Sign In Failed");
+            }
+        }
+    }
+
+    private void firebaseAuthWithGoogle(GoogleSignInAccount account){
+        Log.d(TAG, String.format("firebaseAuthWithGoogle: %s", account.getId()));
+        AuthCredential credential = GoogleAuthProvider.getCredential(account.getIdToken(), null);
+        mFirebaseAuth.signInWithCredential(credential).addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+            @Override
+            public void onComplete(@NonNull Task<AuthResult> task) {
+                Log.d(TAG, String.format("signInWithCredential: onComplete: %b", task.isSuccessful()));
+                if (task.isSuccessful()){
+                    startActivity(new Intent(SignInActivity.this, MainActivity.class));
+                    finish();
+                }else{
+                    Log.w(TAG, "signInWithCredential: failed:", task.getException());
+                    Toast.makeText(SignInActivity.this, "Authentication failed", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+
+
 }
