@@ -107,6 +107,8 @@ public class MainActivity extends AppCompatActivity
 
     private FirebaseAuth mFirebaseAuth;
     private FirebaseUser mFirebaseUser;
+    private DatabaseReference mFirebaseDataReference;
+    private FirebaseRecyclerAdapter<FriendlyMessage, MessageViewHolder> mFirebaseadapter;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -140,7 +142,7 @@ public class MainActivity extends AppCompatActivity
         mLinearLayoutManager.setStackFromEnd(true);
         mMessageRecyclerView.setLayoutManager(mLinearLayoutManager);
 
-        mProgressBar.setVisibility(ProgressBar.INVISIBLE);
+        configureFirebaseAdapater();
 
         mMessageEditText = (EditText) findViewById(R.id.messageEditText);
         mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(mSharedPreferences
@@ -169,6 +171,10 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View view) {
                 // Send messages on click.
+                FriendlyMessage message = new FriendlyMessage(mMessageEditText.getText().toString(),
+                        mUsername,mPhotoUrl);
+                mFirebaseDataReference.child(MESSAGES_CHILD).push().setValue(message);
+                mMessageEditText.setText("");
             }
         });
     }
@@ -225,5 +231,27 @@ public class MainActivity extends AppCompatActivity
         // be available.
         Log.d(TAG, "onConnectionFailed:" + connectionResult);
         Toast.makeText(this, "Google Play Services error.", Toast.LENGTH_SHORT).show();
+    }
+
+    private void configureFirebaseAdapater(){
+        mFirebaseDataReference = FirebaseDatabase.getInstance().getReference();
+        //inner class of MainActivity
+        mFirebaseadapter = new FirebaseRecyclerAdapter<FriendlyMessage, MessageViewHolder>(FriendlyMessage.class, R.layout.item_message, MessageViewHolder.class, mFirebaseDataReference.child(MESSAGES_CHILD)) {
+            @Override
+            protected void populateViewHolder(MessageViewHolder viewHolder, FriendlyMessage model, int position) {
+                mProgressBar.setVisibility(ProgressBar.INVISIBLE);
+                viewHolder.messageTextView.setText(model.getText());
+                viewHolder.messengerTextView.setText(model.getName());
+
+                if(model.getPhotoUrl() == null){
+                    viewHolder.messengerImageView.setImageResource(R.drawable.ic_account_circle_black_36dp);
+                }else{
+                    Glide.with(MainActivity.this).load(model.getPhotoUrl()).into(viewHolder.messengerImageView);
+                }
+            }
+        };
+
+        mMessageRecyclerView.setLayoutManager(mLinearLayoutManager);
+        mMessageRecyclerView.setAdapter(mFirebaseadapter);
     }
 }
